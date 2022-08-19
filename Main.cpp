@@ -4,7 +4,7 @@
 
 void DefineDirect3D9HookFunctions(sol::this_state ts, sol::table& module ) {
 	Direct3D9Hook::Initialize( ts );
-	module.set_function( "Uninitialize", &Direct3D9Hook::Uninitialize ); // unwork cuz dll pinned -> check dllmain
+	module.set_function( "Uninitialize", &Direct3D9Hook::Uninitialize );
 }
 
 sol::table open( sol::this_state ts ) {
@@ -19,15 +19,4 @@ sol::table open( sol::this_state ts ) {
 
 extern "C" __declspec(dllexport) int luaopen_Direct3D9HookDll(lua_State * LuaState) {
 	return (sol::c_call<decltype(&(open)), &(open)>)(LuaState);
-}
-
-BOOL WINAPI DllMain(HINSTANCE hinstDLL, DWORD fdwReason, LPVOID lpvReserved)
-{
-	if (fdwReason == DLL_PROCESS_ATTACH)
-	{
-		// pin DLL to prevent unloading
-		HMODULE module;
-		GetModuleHandleExW(GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS | GET_MODULE_HANDLE_EX_FLAG_PIN, reinterpret_cast<LPCWSTR>(&DllMain), &module);
-	}
-	return TRUE;
 }
