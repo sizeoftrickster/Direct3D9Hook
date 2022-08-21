@@ -2,28 +2,11 @@
 
 Direct3D9Hook* Direct3D9Hook::self{ nullptr };
 
-kthook::kthook_signal<PresentPrototype> presentHook{ Direct3D9Wrapper::GetVTableFunctionAddress( 17 ) };
-kthook::kthook_signal<ResetPrototype> resetHook{ Direct3D9Wrapper::GetVTableFunctionAddress( 16 ) };
-
-std::optional<HRESULT> PresentHooked( const decltype( presentHook )& hook, IDirect3DDevice9*, CONST RECT*, CONST RECT*, HWND, CONST RGNDATA* ) {
-	Direct3D9Hook::CallFunctionPresent();
-	return std::nullopt;
-}
-
-std::optional<HRESULT> ResetHooked( const decltype( resetHook )& hook, IDirect3DDevice9* , D3DPRESENT_PARAMETERS* ) {
-	Direct3D9Hook::CallFunctionReset();
-	return std::nullopt;
-}
-
-void LostHooked( const decltype( resetHook )& hook, HRESULT&, IDirect3DDevice9*, D3DPRESENT_PARAMETERS* ) {
-	Direct3D9Hook::CallFunctionLost();
-}
-
 Direct3D9Hook::Direct3D9Hook( sol::this_state ts ) : _ts( ts ) {
-	presentHook.before += &PresentHooked;
+	presentHook.before += [this]( auto&&... args ) { return Direct3D9Hook::PresentHooked( args... ); };
 	presentHook.install();
-	resetHook.before += &ResetHooked;
-	resetHook.after += &LostHooked;
+	resetHook.before += [this]( auto&&... args ) { return Direct3D9Hook::ResetHooked( args... ); };
+	resetHook.after += [this]( auto&&... args ) { return Direct3D9Hook::LostHooked( args... ); };
 	resetHook.install();
 }
 
@@ -45,19 +28,21 @@ void Direct3D9Hook::Uninitialize() {
 	}
 }
 
-void Direct3D9Hook::CallFunctionPresent() {
-	sol::state_view lua{ self->_ts };
+std::optional<HRESULT> Direct3D9Hook::PresentHooked( const decltype( presentHook )& hook, IDirect3DDevice9*, CONST RECT*, CONST RECT*, HWND, CONST RGNDATA* ) {
+	sol::state_view lua{ _ts };
 	if ( lua["OnPresent"].valid() )
 		lua["OnPresent"].call();
+	return std::nullopt;
 }
 
-void Direct3D9Hook::CallFunctionReset() {
+std::optional<HRESULT> Direct3D9Hook::ResetHooked( const decltype( resetHook )& hook, IDirect3DDevice9*, D3DPRESENT_PARAMETERS* ) {
 	sol::state_view lua{ self->_ts };
 	if ( lua["OnReset"].valid() )
 		lua["OnReset"].call();
+	return std::nullopt;
 }
 
-void Direct3D9Hook::CallFunctionLost() {
+void Direct3D9Hook::LostHooked( const decltype( resetHook )& hook, HRESULT&, IDirect3DDevice9*, D3DPRESENT_PARAMETERS* ) {
 	sol::state_view lua{ self->_ts };
 	if ( lua["OnLost"].valid() )
 		lua["OnLost"].call();
